@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const connectDB = require('./db');
-const User = require('./User');
+const Person = require('./person.schema');
 
 const app = express();
 app.use(express.json());
@@ -14,28 +14,38 @@ connectDB();
 
 // Login Endpoint
 app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { emailid, pass } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please provide email and password' });
+  if (!emailid || !pass) {
+    return res.status(400).json({ message: 'Please provide emailid and pass' });
   }
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
+    const person = await Person.findOne({ emailid });
+    if (!person) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(pass, person.pass);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { id: person._id, emailid: person.emailid, role: person.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
     res.status(200).json({
       message: 'Login successful',
-      user: { id: user._id, username: user.username, email: user.email },
+      person: {
+        _id: person._id,
+        id: person.id,
+        name: person.name,
+        emailid: person.emailid,
+        role: person.role
+      },
       token
     });
   } catch (error) {

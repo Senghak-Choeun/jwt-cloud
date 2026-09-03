@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const connectDB = require('./db');
-const User = require('./User');
+const Person = require('./person.schema');
 
 const app = express();
 app.use(express.json());
@@ -14,32 +14,46 @@ connectDB();
 
 // Registration Endpoint
 app.post('/api/register', async (req, res) => {
-  const { username, email, password } = req.body;
+  const { id, name, emailid, pass, mobile, role } = req.body;
 
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: 'Please provide all required fields' });
+  if (!emailid || !pass || !name) {
+    return res.status(400).json({ message: 'Name, emailid, and pass are required.' });
   }
 
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+    const existingPerson = await Person.findOne({ emailid });
+    if (existingPerson) {
+      return res.status(400).json({ message: 'User with this emailid already exists.' });
     }
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(pass, salt);
 
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword
+    const newPerson = await Person.create({
+      id,
+      name,
+      emailid,
+      pass: hashedPassword,
+      mobile,
+      role: role || 'user'
     });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { id: newPerson._id, emailid: newPerson.emailid, role: newPerson.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
     res.status(201).json({
-      message: 'User registered successfully',
-      user: { id: user._id, username: user.username, email: user.email },
+      message: 'Registration successful',
+      person: {
+        _id: newPerson._id,
+        id: newPerson.id,
+        name: newPerson.name,
+        emailid: newPerson.emailid,
+        mobile: newPerson.mobile,
+        role: newPerson.role
+      },
       token
     });
   } catch (error) {
